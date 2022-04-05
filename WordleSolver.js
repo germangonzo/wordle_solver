@@ -48,9 +48,6 @@ module.exports = class WordleSolver {
             green,
             yellow
         });
-        const re = new RegExp(`[^${green}${yellow}]`, 'gi');
-
-
         green.forEach((g,i)=> {
             if (g!=="") {
                 this.greenList[i] = g;
@@ -61,7 +58,7 @@ module.exports = class WordleSolver {
                 this.yellowList[i] += y;
             }
         });
-
+        const re = new RegExp(`[^${green}${yellow}]`, 'gi');
         const toDiscard =  word.match(re) || [];
         toDiscard.forEach(d => this.discarded.add(d));
         const searchRe = this.buildSearchRegex();

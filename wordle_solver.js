@@ -89,7 +89,7 @@ async function run() {
 
 
         } catch (e) {
-            console.log('Closing...');
+            console.log('Closing...', e);
             process.exit();
         }
 

@@ -48,6 +48,7 @@ module.exports = async function wordleInput(word) {
             } = k;
             switch (name) {
                 case "right":
+                case "space":
                     pos = ++pos % 5
                     break;
                 case "left":
@@ -61,13 +62,17 @@ module.exports = async function wordleInput(word) {
                     let j = colors.indexOf(input[pos].color || '');
                     input[pos].color = colors[j > 0 ? --j : 2];
                     break;
+                case "s":
+                    input.forEach(c => {
+                        c.color ="green";
+                    });
             };
             readline.moveCursor(stream, 0, -1);
             //clears stream
             rl.clearLine()
             rl.write(formatInput(input));
             readline.cursorTo(stream, 3 * pos + 1);
-            if (name == 'return') {
+            if (name === 'return') {
                 rl.close();
                 process.stdin.off('keypress', keypressHandler);
                 readline.clearLine(stream, 0);
