@@ -1,3 +1,5 @@
+const { showCompletionScript } = require("yargs");
+
 module.exports =
   class WordleSolver {
     greenList = ["", "", "", "", ""];
@@ -5,36 +7,35 @@ module.exports =
     discarded = ["", "", "", "", ""];
     log = [];
     dictionary = [];
-    frequency = {};
+    dictFrequency = {};
 
     constructor(dictionary) {
       this.dictionary = dictionary;
-      this.frequency =
-        this.dictionary.reduce(
-          (p, w) => {
-            w
-              .split("")
-              .forEach(
-                (c, i) => {
-                  if (!p[i]) {
-                    p[i] = { [c]: 0 };
-                  }
-                  if (!p[i][c]) {
-                    p[i][c] = 0;
-                  }
-                  ++p[i][c];
-                },
-              );
-            return p;
-          },
-          {},
-        );
+      this.dictFrequency = this.calcFrequency(this.dictionary);
     }
     uniq(arr) {
       return Array.from(new Set(arr));
     }
     uniqLetters(str) {
       return this.uniq(str.split("")).join("");
+    }
+
+    calcFrequency(dictionary) {
+      return dictionary.reduce(
+        (p, w) => {
+          w.split("").forEach((c, i) => {
+            if (!p[i]) {
+              p[i] = { [c]: 0 };
+            }
+            if (!p[i][c]) {
+              p[i][c] = 0;
+            }
+            ++p[i][c];
+          },);
+          return p;
+        },
+        {},
+      );
     }
 
     buildSearchRegex() {
@@ -48,42 +49,64 @@ module.exports =
       return new RegExp(`${regex}^${final}$`, "i");
     }
 
+    scoreWord(word, results, frequency) {
+      const dictLength = this.dictionary.length;
+      return word.split("").reduce(
+        (p, c, i) => p += frequency[i][c] / results.length * this.dictFrequency[i][c] / dictLength || 0,
+        0,
+      );
+    }
+
+    scoreWord2(word, results, frequency) {
+      const dictLength = this.dictionary.length;
+      const chars = word.split("");
+      return chars.reduce(
+        (p, c, i) => {
+          let positions = [];
+          if (i === 0) {
+            positions = [0, 1, 2];
+          } else if (i < 4) {
+            positions = [i - 1, i, i + 1];
+          } else {
+            positions = [i - 2, i - 1, i];
+          }
+
+          const sumFreq = positions.reduce((f, p) => f += frequency[p][chars[p]], 0);
+          const sumTotalFreq = positions.reduce((f, p) => f += this.dictFrequency[p][chars[p]], 0);
+
+          p += sumFreq / results.length * sumTotalFreq / dictLength || 0;
+
+          return p;
+        },
+        0,
+      );
+    }
+
     score(results) {
-      return results.map(
-        (word) => ({ word, score: word.split("").reduce((p, c, i) => p += this.frequency[i][c] || 0, 0) }),
-      ).sort((a, b) => b.score - a.score);
+      const frequency = this.calcFrequency(results);
+      return results.map((word) => ({ word, score: this.scoreWord2(word, results, frequency) })).sort(
+        (a, b) => b.score - a.score,
+      );
     }
 
     solve(word, green, yellow) {
-      this.log.push({ word, green, yellow });
-      green.forEach(
-        (g, i) => {
-          if (g !== "") {
-            this.greenList[i] = g;
+      word.split("").forEach((w, i) => {
+        if (green[i]) {
+          this.greenList[i] = w;
+        } else if (yellow[i]) {
+          this.yellowList[i] += w;
+          this.discarded[i] += w;
+        } else {
+          this.discarded[i] += w;
+          //Adds the discarded letter to the other positions
+          const yflat = this.yellowList.flatMap((y) => y.split(""));
+          if (!yflat.includes(w) || this.greenList.includes(w)) {
+            this.discarded = this.discarded.map((d, j) => this.greenList[j] !== w ? d + w : d);
           }
-        },
-      );
-      yellow.forEach(
-        (y, i) => {
-          if (y !== "") {
-            this.yellowList[i] += y;
-            this.discarded[i] += y;
-          }
-        },
-      );
-      word
-        .split("")
-        .forEach(
-          (w, i) => {
-            const yflat = this.yellowList.flatMap((y) => y.split(""));
-            if (!this.greenList[i] && yflat.indexOf(w) < 0) {
-              this.discarded = this.discarded.map((d) => d + w);
-            }
-          },
-        );
-
+        }
+      },);
       const searchRe = this.buildSearchRegex();
-      console.debug(searchRe);
+      // console.debug(searchRe);
       return this.score(this.dictionary.filter((d) => searchRe.test(d)));
     }
     isSolved() {

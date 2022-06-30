@@ -9,8 +9,18 @@ var path = process.cwd();
 
 prompt.start();
 
+
+function rankResults(r) {
+  return r?.length;
+}
+
+function rankResults2(r) {
+  return r && r.length && 1.0/r[0].score || 0;
+}
+
+
 async function run() {
-  var argv = require("yargs/yargs")(process.argv.slice(2)).default({ n: 1, f: path + "/wordle_es_notildes.txt" }).argv;
+  var argv = require("yargs/yargs")(process.argv.slice(2)).default({ n: 1, f: path + "/quordle_es.txt" }).argv;
   const wordles = [];
   const buffer = fs.readFileSync(argv.f);
   const data = buffer.toString().split("\n");
@@ -25,9 +35,8 @@ async function run() {
   while (true) {
     try {
       let { word } = await prompt.get({ properties: { word: { required: true } } });
-      let results = [];
-      minRanking = Infinity;
-      wordleIndex = -1;
+      let wordleResults = [];
+
 
       for (let i = 0; i < numWordles; i++) {
         const ws = wordles[i];
@@ -44,14 +53,13 @@ async function run() {
           );
 
           r = ws.solve(word, green, yellow);
+
           if (!ws.isSolved()) {
-            //wranking
-            const wranking = (r && r.length) / (ws.greenList.filter(w => w !== "").length || 1)
-            if (wranking && wranking < minRanking) {
-              minRanking = wranking;
-              wordleIndex = i;
-              results = r;
-            }
+            wordleResults.push({
+              wordleIndex: i,
+              results: r,
+              rank: rankResults2(r)
+            });
           } else {
             console.log(`Wordle #${i + 1} SOLVED ${ws.greenList.join("")}`);
           }
@@ -59,12 +67,16 @@ async function run() {
           console.log(`Wordle #${i + 1} SOLVED "${ws.greenList.join("")}"`);
         }
       }
-      if (wordleIndex < 0) {
+      if (!wordleResults.length) {
         break;
       }
+
+      const {wordleIndex, results, rank }= wordleResults.sort((a, b) => b.rank - a.rank).shift();
+
+
       console.log(`Results for wordle #${wordleIndex + 1}`);
-      console.log("Matches", results.length);
-      console.log(results.slice(0, 20));
+      console.log("Matches:", results.length);
+      console.log(results.slice(0, 30));
     } catch (e) {
       console.log("Closing...", e);
       process.exit();
